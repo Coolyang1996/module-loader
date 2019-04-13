@@ -1,6 +1,6 @@
 define('modA', ['modB', 'modC'], function(modB, modC) {
-  console.log('this is modA');
-  modB.greet('modA');
+  console.log('A');
 
-  modC.greet();
+  modB.greet('modA');
+  modC.greet('modA');
 });

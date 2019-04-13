@@ -1,9 +1,9 @@
 define('modB', [], function() {
-  console.log('this is modB');
+  console.log('B');
 
   return {
     greet(name) {
-      console.log(`modB: hello ${name}`);
+      console.log(`${name} call modB`);
     }
   };
 });

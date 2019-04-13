@@ -1,6 +1,6 @@
 (function() {
   require.config = {
-    path: {
+    paths: {
       modA: './modA.js',
       modB: './modB.js',
       modC: './modc.js'
