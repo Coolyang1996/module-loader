@@ -1,12 +1,27 @@
-/**
- * load模块加载完,会调用define,
- * define模块定义完通过事件通知
- * require 监听module length到了, 就执行回调
- */
-
 (function() {
-  let config = {};
+  class Channel {
+    constructor() {
+      this.events = {};
+    }
+
+    subscripe(eventName, callback) {
+      if (!this.events[eventName]) {
+        this.events[eventName] = [];
+      }
+
+      this.events[eventName].push(callback);
+    }
+
+    publish(eventName, message) {
+      this.events[eventName].forEach(callback => {
+        callback(message);
+      });
+    }
+  }
+
   const INSTALLED_MODULES = {};
+  const channel = new Channel();
+  const config = {};
 
   function load(src, func) {
     const script = document.createElement('script');
@@ -19,22 +34,27 @@
     const modules = [];
     const len = moduleIds.length;
 
-    for (const id of moduleIds) {
-      if (INSTALLED_MODULES[id]) {
-        if (INSTALLED_MODULES[id].export) {
-          modules.push(INSTALLED_MODULES[id].export);
+    for (const moduleId of moduleIds) {
+      // 模块已初始化
+      if (INSTALLED_MODULES[moduleId]) {
+        // 模块已加载完毕
+        if (INSTALLED_MODULES[moduleId].loaded) {
+          modules.push(INSTALLED_MODULES[moduleId].exports);
           continue;
         }
+      } else {
+        // 模块初始化
+        const path = config.paths[moduleId];
+        INSTALLED_MODULES[moduleId] = {
+          exports: {},
+          loaded: false
+        };
+        load(path);
       }
 
-      INSTALLED_MODULES[id] = {
-        export: {},
-        loaded: false
-      };
-      const path = config.paths[id];
-
-      load(path, () => {
-        modules.push(INSTALLED_MODULES[id].export);
+      // 订阅模块加载完毕事件
+      channel.subscripe(moduleId, exports => {
+        modules.push(exports);
         if (modules.length === len) {
           typeof func === 'function' && func(...modules);
         }
@@ -46,14 +66,24 @@
     }
   };
 
-  require.config = function(obj) {
-    config = Object.assign({}, config, obj);
+  require.config = function(conf) {
+    Object.assign(config, conf);
   };
 
-  const define = function(id, depends, factory) {
-    require(depends, function(...args) {
-      INSTALLED_MODULES[id].export = factory(...args);
-    });
+  const define = function(moduleId, depends, factory) {
+    if (typeof depends === 'function') {
+      const exports = depends();
+      INSTALLED_MODULES[moduleId].exports = exports;
+      INSTALLED_MODULES[moduleId].loaded = true;
+      channel.publish(moduleId, exports);
+    } else {
+      require(depends, function(...modules) {
+        const exports = factory(...modules);
+        INSTALLED_MODULES[moduleId].exports = exports;
+        INSTALLED_MODULES[moduleId].loaded = true;
+        channel.publish(moduleId, exports);
+      });
+    }
   };
 
   window.require = require;
