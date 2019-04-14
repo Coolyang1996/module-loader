@@ -23,46 +23,52 @@
   const channel = new Channel();
   const config = {};
 
-  function load(src, func) {
+  function load(src, callback) {
     const script = document.createElement('script');
     script.setAttribute('src', src);
-    script.onload = func;
+    script.onload = callback;
     document.body.appendChild(script);
   }
 
-  const require = function(moduleIds = [], func) {
+  const require = function(moduleIds = [], callback) {
     const modules = [];
     const len = moduleIds.length;
+    let count = 0;
 
-    for (const moduleId of moduleIds) {
-      // 模块已初始化
-      if (INSTALLED_MODULES[moduleId]) {
-        // 模块已加载完毕
-        if (INSTALLED_MODULES[moduleId].loaded) {
-          modules.push(INSTALLED_MODULES[moduleId].exports);
+    const handleLoaded = function(id, index) {
+      // 保存模块并记录数量
+      modules[index] = INSTALLED_MODULES[id].exports;
+      count++;
+
+      if (count === len) {
+        // 已加载完所有模块,执行回调
+        typeof callback === 'function' && callback(...modules);
+      }
+    };
+
+    for (let i = 0; i < len; i++) {
+      const moduleId = moduleIds[i];
+      const module = INSTALLED_MODULES[moduleId];
+
+      if (module) {
+        if (module.loaded) {
+          handleLoaded(moduleId, i);
           continue;
         }
       } else {
-        // 模块初始化
-        const path = config.paths[moduleId];
+        // 初始化模块并请求
         INSTALLED_MODULES[moduleId] = {
           exports: {},
           loaded: false
         };
-        load(path);
+
+        load(config.paths[moduleId]);
       }
 
       // 订阅模块加载完毕事件
-      channel.subscripe(moduleId, exports => {
-        modules.push(exports);
-        if (modules.length === len) {
-          typeof func === 'function' && func(...modules);
-        }
+      channel.subscripe(moduleId, () => {
+        handleLoaded(moduleId, i);
       });
-    }
-
-    if (modules.length === len) {
-      typeof func === 'function' && func(...modules);
     }
   };
 
@@ -72,16 +78,14 @@
 
   const define = function(moduleId, depends, factory) {
     if (typeof depends === 'function') {
-      const exports = depends();
-      INSTALLED_MODULES[moduleId].exports = exports;
+      INSTALLED_MODULES[moduleId].exports = depends();
       INSTALLED_MODULES[moduleId].loaded = true;
-      channel.publish(moduleId, exports);
+      channel.publish(moduleId);
     } else {
       require(depends, function(...modules) {
-        const exports = factory(...modules);
-        INSTALLED_MODULES[moduleId].exports = exports;
+        INSTALLED_MODULES[moduleId].exports = factory(...modules);
         INSTALLED_MODULES[moduleId].loaded = true;
-        channel.publish(moduleId, exports);
+        channel.publish(moduleId);
       });
     }
   };

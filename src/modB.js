@@ -1,4 +1,4 @@
-define('modB', [], function() {
+define('modB', function() {
   console.log('B');
 
   return {
