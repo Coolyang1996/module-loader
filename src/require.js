@@ -18,17 +18,16 @@
       });
     }
   }
-
-  const INSTALLED_MODULES = {};
   const channel = new Channel();
+  const INSTALLED_MODULES = {};
   const config = {};
 
-  function load(src, callback) {
+  const loadScript = function(src, callback) {
     const script = document.createElement('script');
     script.setAttribute('src', src);
     script.onload = callback;
     document.body.appendChild(script);
-  }
+  };
 
   const require = function(moduleIds = [], callback) {
     const modules = [];
@@ -62,7 +61,7 @@
           loaded: false
         };
 
-        load(config.paths[moduleId]);
+        loadScript(config.paths[moduleId]);
       }
 
       // 订阅模块加载完毕事件
@@ -93,5 +92,5 @@
   window.require = require;
   window.define = define;
 
-  load(document.querySelector('script[data-main]').dataset.main);
+  loadScript(document.querySelector('script[data-main]').dataset.main);
 })();
